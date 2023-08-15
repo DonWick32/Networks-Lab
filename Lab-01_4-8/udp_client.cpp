@@ -1,6 +1,12 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #define PORT 8000
 #define ADDRESS "127.0.0.1"
@@ -14,7 +20,6 @@ int main(){
 
     if (socket_fd == -1){
         perror("Socket creation failed.");
-        cout << "Socket creation failed." << endl;
         exit(EXIT_FAILURE);
     }
 
@@ -31,7 +36,7 @@ int main(){
         socket_fd,
         message.c_str(),
         message.size(),
-        MSG_CONFIRM,
+        0,
         (const sockaddr*) &server_address,
         sizeof(server_address)
     );
@@ -42,5 +47,6 @@ int main(){
     }
 
     cout << "Message of " << bytes << " bytes has been sent to " << inet_ntoa(server_address.sin_addr) << endl;
+    close(socket_fd);
     return 0;
 }
