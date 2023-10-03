@@ -1,0 +1,440 @@
+Lab - 2:
+
+Client:
+from socket import socket, AF_INET, SOCK_STREAM
+from threading import Thread
+
+ip = '127.0.0.1'
+port = 9999
+buffer_size = 1024
+
+client_socket = socket(AF_INET, SOCK_STREAM)
+client_socket.connect((ip, port))
+
+def receive():
+    while True:
+        try:
+            msg = client_socket.recv(buffer_size).decode('utf-8')
+            print(msg)
+        except:
+            print('Disconnected from server!')
+            client_socket.close()
+            break
+
+
+def send():
+    while True:
+        msg = input()
+        client_socket.send(msg.encode('utf-8'))
+        if (msg == 'exit'):
+            client_socket.close()
+            break
+
+sender = Thread(target = send)
+receiver = Thread(target = receive)
+
+sender.start()
+receiver.start()
+-------------------------------------------------------------------------
+Server:
+from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
+from threading import Thread
+
+ip = '127.0.0.1'
+port = 9999
+buffer_size = 1024
+
+server_socket = socket(AF_INET, SOCK_STREAM)
+server_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+server_socket.bind((ip, port))
+server_socket.listen()
+print('Server has started.')
+
+clients = []
+client_address = []
+
+def broadcast(msg, client_socket):
+    for c in clients:
+        if (c != client_socket):
+            c.send(msg)
+
+def handle_client(client):
+    while True:
+        try:
+            msg = client.recv(buffer_size)
+            ind = clients.index(client)
+            address = client_address[ind]
+
+            text = msg.decode('utf-8')
+
+            if text == "exit":
+                clients.remove(client)
+                del client_address[ind]
+                client.close()
+                broadcast(f"{address} has disconnected!".encode('utf-8'), client)
+                print(address, "has disconnected!")
+                break
+            else:
+                print(f"Received: '{text}' from {address}")
+                broadcast(f"{address} : {text} ".encode('utf-8'), client)
+
+        except:
+            ind = clients.index(client)
+            clients.remove(client)
+            address = client_address[ind]
+            del client_address[ind]
+            client.close()
+            broadcast(f"{address} has disconnected!".encode('utf-8'), client)
+            print(address, "has disconnected!")
+            break
+
+
+while True:
+    client_socket, addr = server_socket.accept()
+    print("Connected to:", addr)
+    clients.append(client_socket)
+    client_address.append(addr)
+
+    client_socket.send('Connected to server.'.encode('utf-8'))
+
+    thread = Thread(target = handle_client, args = (client_socket,))
+    thread.start()
+----------------------------------------------------------------------------------
+Lab - 3:
+Voting Server:
+from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
+from threading import Thread
+
+ip, port, buffer_size = '127.0.0.1', 9999, 4096
+
+s_sock = socket(AF_INET, SOCK_STREAM)
+s_sock.bind((ip, port))
+s_sock.listen()
+print('Server has started.')
+
+candi = ["A", "B", "C", "D", "E"]
+votes = [0, 0, 0, 0, 0]
+
+c = []
+c_addr = []
+
+def display_votes():
+    msg = "Current Votes:\n"
+
+    for i in range(len(candi)):
+        msg += f"{i+1}) {candi[i]} - {votes[i]} votes\n"
+
+    msg += (f"Candidate - {candi[votes.index(max(votes))]} is leading!\n")
+
+    print(msg)
+
+def handle_client(client):
+    while True:
+        try:
+            msg = client.recv(buffer_size)
+            ind = c.index(client)
+            addr = c_addr[ind]
+
+            text = msg.decode('utf-8')
+
+            if text == "exit":
+                c.remove(client)
+                del c_addr[ind]
+                client.close()
+                print(addr, "has disconnected!")
+                break
+            else:
+                c_id = int(text)
+                if c_id in range(1, len(candi)+1):
+                    print(f"{addr} has casted a vote for {candi[c_id-1]}!")
+                    votes[c_id - 1] += 1
+                    display_votes()
+                    client.send("Vote casted!".encode('utf-8'))
+                else:
+                    client.send("Invalid candidate!".encode('utf-8'))
+
+
+        except:
+            ind = c.index(client)
+            c.remove(client)
+            addr = c_addr[ind]
+            del c_addr[ind]
+            client.close()
+            print(addr, "has disconnected!")
+            break
+
+
+while True:
+    c_sock, addr = s_sock.accept()
+    print("Connected to:", addr)
+    c.append(c_sock)
+    c_addr.append(addr)
+
+    msg = "Connected to server.\n"
+    msg += "Candidates:\n"
+    for i in range(len(candi)):
+        msg += f"{i+1}) {candi[i]}\n"
+    msg += "Enter the candidate number to vote: "
+
+    c_sock.send(msg.encode('utf-8'))
+
+    thread = Thread(target = handle_client, args = (c_sock,))
+    thread.start()
+--------------------------------------------------------------------------------------
+Voting client:
+from socket import socket, AF_INET, SOCK_STREAM
+from threading import Thread
+
+ip = '127.0.0.1'
+port = 9999
+buffer_size = 4096
+
+client_socket = socket(AF_INET, SOCK_STREAM)
+client_socket.connect((ip, port))
+
+def receive():
+    while True:
+        try:
+            msg = client_socket.recv(buffer_size).decode('utf-8')
+            print(msg)
+        except:
+            print('Disconnected from server!')
+            client_socket.close()
+            break
+
+
+def send():
+    while True:
+        msg = input()
+        client_socket.send(msg.encode('utf-8'))
+        if (msg == 'exit'):
+            client_socket.close()
+            break
+
+sender = Thread(target = send)
+receiver = Thread(target = receive)
+
+sender.start()
+receiver.start()
+---------------------------------------------------------------------------------------
+File Client:
+from socket import socket, AF_INET, SOCK_STREAM
+from threading import Thread
+
+ip = '127.0.0.1'
+port = 9999
+buffer_size = 1024
+
+client_socket = socket(AF_INET, SOCK_STREAM)
+client_socket.connect((ip, port))
+
+def receive():
+    while True:
+        try:
+            msg = client_socket.recv(buffer_size).decode('utf-8')
+            print(msg)
+        except:
+            print('Disconnected from server!')
+            client_socket.close()
+            break
+
+
+def send():
+    while True:
+        file = input("Enter file name: ")
+        if file == 'exit':
+            client_socket.close()
+            break
+
+        with open(file, 'r') as f:
+            msg = f.read()
+            client_socket.send(msg.encode('utf-8'))
+
+sender = Thread(target = send)
+receiver = Thread(target = receive)
+
+receiver.start()
+sender.start()
+----------------------------------------------------------------------------------------
+File server:
+
+from socket import socket, AF_INET, SOCK_STREAM
+from threading import Thread
+
+ip = '127.0.0.1'
+port = 9999
+buffer_size = 1024
+
+s_sock = socket(AF_INET, SOCK_STREAM)
+s_sock.bind((ip, port))
+s_sock.listen()
+print('Server has started.')
+
+def handle_client(client):
+    while True:
+        try:
+            msg = client.recv(buffer_size)
+            text = msg.decode('utf-8')
+
+            with open('newfile.txt', 'w') as f:
+                f.write(text)
+
+            with open('newfile.txt', 'r') as f:
+                s = f.readlines()
+                lc = len(s)
+                wc = 0
+                cc = 0
+
+                for line in s:
+                    words = line.split()
+                    wc += len(words)
+                    cc += len(line)
+
+            msg = "File uploaded successfully.\n"
+            msg += "Line count: " + str(lc) + "\n"
+            msg += "Word count: " + str(wc) + "\n"
+            msg += "Character count: " + str(cc) + "\n"
+
+            print("File created successfully.")
+
+            c_sock.send(msg.encode('utf-8'))
+
+        except:
+            client.close()
+
+
+while True:
+    c_sock, addr = s_sock.accept()
+    print("Connected to:", addr)
+
+    c_sock.send('Connected to server.'.encode('utf-8'))
+
+    thread = Thread(target = handle_client, args = (c_sock,))
+    thread.start()
+---------------------------------------------------------------------------------------
+Sorting client:
+from socket import socket, AF_INET, SOCK_STREAM
+from threading import Thread
+
+ip = '127.0.0.1'
+port = 9999
+buffer_size = 1024
+
+client_socket = socket(AF_INET, SOCK_STREAM)
+client_socket.connect((ip, port))
+
+def receive():
+    while True:
+        try:
+            msg = client_socket.recv(buffer_size).decode('utf-8')
+            print(msg)
+        except:
+            print('Disconnected from server!')
+            client_socket.close()
+            break
+
+
+def send():
+    while True:
+        n = int(input())
+        if n <= 0:
+            client_socket.close()
+            break
+
+        arr = list(map(int,input("\nEnter the numbers: ").strip().split()))[:n]
+
+        msg = str(n) + ":" + str(arr)
+
+        client_socket.send(msg.encode('utf-8'))
+
+sender = Thread(target = send)
+receiver = Thread(target = receive)
+
+receiver.start()
+sender.start()
+------------------------------------------------------------------------------------------
+Sorting server:
+
+from socket import socket, AF_INET, SOCK_STREAM
+from threading import Thread
+
+ip = '127.0.0.1'
+port = 9999
+buffer_size = 1024
+
+server_socket = socket(AF_INET, SOCK_STREAM)
+server_socket.bind((ip, port))
+server_socket.listen()
+print('Server has started.')
+
+def handle_client(client):
+    def merge(arr, l, m, r):
+        n1, n2  = m - l + 1, r - m
+
+        L, R = [0] * n1, [0] * n2
+
+        for i in range(0, n1):
+            L[i] = arr[l + i]
+
+        for j in range(0, n2):
+            R[j] = arr[m + 1 + j]
+
+        i, j, k = 0, 0, l
+
+        while i < n1 and j < n2:
+            if L[i] <= R[j]:
+                arr[k] = L[i]
+                i += 1
+            else:
+                arr[k] = R[j]
+                j += 1
+            k += 1
+
+        while i < n1:
+            arr[k] = L[i]
+            i += 1
+            k += 1
+
+        while j < n2:
+            arr[k] = R[j]
+            j += 1
+            k += 1
+
+    def mergeSort(arr, l, r):
+        if l < r:
+            mid = (l + r) // 2
+            mergeSort(arr, l, mid)
+            mergeSort(arr, mid + 1, r)
+            merge(arr, l, mid, r)
+
+    while True:
+        try:
+            msg = client.recv(buffer_size)
+            text = msg.decode('utf-8')
+
+            n, arr = text.split(":")
+            arr = arr.replace("[", "").replace("]", "").replace(",", "")
+            n = int(n)
+            arr = list(map(int, arr.split(" ")))
+
+            mergeSort(arr, 0, n - 1)
+
+            print("Sorted", n, "number(s).")
+            msg = "Sorted List:\n"
+            msg += str(arr)
+
+            client_socket.send(msg.encode('utf-8'))
+
+        except:
+            client.close()
+
+
+while True:
+    client_socket, addr = server_socket.accept()
+    print("Connected to:", addr)
+
+    client_socket.send('Connected to server.'.encode('utf-8'))
+
+    thread = Thread(target = handle_client, args = (client_socket,))
+    thread.start()
+---------------------------------------------------------------------
